@@ -104,11 +104,14 @@
 			}
 		}
 
-		$(document).ready(function(){
+		function getNumberByNames() {
 			if (!localStorage.getItem("NumberByName")) {
 				localStorage.setItem("NumberByName", JSON.stringify({}));
 			}
-			var numberByName = JSON.parse(localStorage.getItem("NumberByName"));
+			return JSON.parse(localStorage.getItem("NumberByName"));
+		}
+
+		$(document).ready(function(){
 			if (localStorage.getItem("numbers")) {
 				var numbers = JSON.parse(localStorage.getItem("numbers"));
 				var names = JSON.parse(localStorage.getItem("names"));
@@ -124,10 +127,12 @@
 			$(document).on("click", ".remove-entry", function() {
 				if ($(".remove-entry").length > 1) {
 					$(this).parent().parent().remove();
-
+					// Reset stored numbers if an entry is removed. Otherwise, we might have dead loop.
+					localStorage.removeItem("NumberByName");
 				}
 			});
 			$("#generate").click(function(){
+				var numberByName = getNumberByNames();
 				var names = [];
 				var numbers = [];
 				$(".name").each(function(index){
@@ -149,7 +154,6 @@
 			});
 			$("#reset").click(function(){
 				localStorage.removeItem("NumberByName");
-				window.location.reload();
 			});
 			$("#clear").click(function() {
 				localStorage.removeItem("names");
