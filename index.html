@@ -62,53 +62,84 @@
 		</tr>
 	</template>
 	<script type="text/javascript">
-		function getRndInteger(min, max) {
-			return Math.floor(Math.random() * (max - min) ) + min;
+		function getRndInt(max) {
+			return Math.floor(Math.random() * max);
 		}
 
-		function findNumber(numberByName, names, numbers) {
-			while (true) {
-				var selected = [];
-				var resultMap = {};
-				for (var i = 0; i < names.length; i++) {
-					var name = names[i];
-					if (!(name in numberByName)) {
-						numberByName[name] = [];
-					}
-					var usedNumbers = numberByName[name];
-					if (usedNumbers.length >= numbers.length) {
-						alert("No result available, use reset");
-						return {};
-					}
-					var availableNumbers = []
-					for (var j = 0; j < numbers.length; j++) {
-						var candidate = numbers[j];
-						if (usedNumbers.indexOf(candidate) == -1 &&
-							selected.indexOf(candidate) == -1) {
-							// Not used before
-							availableNumbers.push(candidate);
-						}
-					}
-					if (availableNumbers.length == 0) {
-						break;
-					}
-					var index = getRndInteger(0, availableNumbers.length);
-					var number = availableNumbers[index];
-					
-					selected.push(number);
-					resultMap[name] = number;
-				}
-				if (Object.keys(resultMap).length == names.length) {
-					return resultMap;
-				}
-			}
+		function rand2(a, b) {
+			if (getRndInt(2) == 0) return [a, b];
+			else return [b, a];
 		}
 
-		function getNumberByNames() {
-			if (!localStorage.getItem("NumberByName")) {
-				localStorage.setItem("NumberByName", JSON.stringify({}));
+		function Latin(n) {
+			let xy = new Array(n).fill(0).map(() => new Array(n).fill(0));
+			let xz = new Array(n).fill(0).map(() => new Array(n).fill(0));
+			let yz = new Array(n).fill(0).map(() => new Array(n).fill(0));
+			for (var i = 0; i < n; i++) {
+				for (var j = 0; j < n; j++) {
+					k = (i + j) % n;
+					xy[i][j] = k;
+					xz[i][k] = j;
+					yz[j][k] = i;
+				}
 			}
-			return JSON.parse(localStorage.getItem("NumberByName"));
+			var mxy, mxz, myz;
+			var m = new Array(3);
+			var proper = true;
+			minIter = n * n * n;
+			for (var iter = 0; iter < minIter || !proper; iter++) {
+				var i, j, k, i2, j2, k2;
+				var i2_, j2_, k2_;
+
+				if (proper) {
+					// Pick a random 0 in the array
+					do {
+						i = getRndInt(n);
+						j = getRndInt(n);
+						k = getRndInt(n);
+					} while (xy[i][j] == k);
+					// find i2 such that [i2, j, k] is 1. same for j2, k2
+					i2 = yz[j][k];
+					j2 = xz[i][k];
+					k2 = xy[i][j];
+					i2_ = i;
+					j2_ = j;
+					k2_ = k;
+				} else {
+					[i, j, k] = m;
+					// find one such that [i2, j, k] is 1, same for j2, k2.
+					// each is either the value stored in the corresponding
+					// slice, or one of our three temporary "extra" 1s.
+					// That's because (i, j, k) is -1.
+					[i2, i2_] = rand2(yz[j][k], myz);
+					[j2, j2_] = rand2(xz[i][k], mxz);
+					[k2, k2_] = rand2(xy[i][j], mxy);
+				}
+
+				proper = (xy[i2][j2] == k2);
+				if (!proper) {
+					m = [i2, j2, k2];
+					mxy = xy[i2][j2];
+					myz = yz[j2][k2];
+					mxz = xz[i2][k2];
+				}
+
+				xy[i][j] = k2_;
+				xy[i][j2] = k2;
+				xy[i2][j] = k2;
+				xy[i2][j2] = k;
+
+				yz[j][k] = i2_;
+				yz[j][k2] = i2;
+				yz[j2][k] = i2;
+				yz[j2][k2] = i;
+
+				xz[i][k] = j2_;
+				xz[i][k2] = j2;
+				xz[i2][k] = j2;
+				xz[i2][k2] = j;
+			}
+			return xy;
 		}
 
 		$(document).ready(function(){
@@ -132,7 +163,6 @@
 				}
 			});
 			$("#generate").click(function(){
-				var numberByName = getNumberByNames();
 				var names = [];
 				var numbers = [];
 				$(".name").each(function(index){
@@ -142,23 +172,40 @@
 					names.push($(this).val());
 					numbers.push($(".number:eq(" + index + ")").val());
 				});
-				$("#result").empty();
+				var round = localStorage.getItem("round");
+				if (null === round) {
+					round = 0;
+				}
+				if (round >= names.length) {
+					alert("No result available, use reset");
+				} else {
+					if (!localStorage.getItem("latinsquare")) {
+						resultMap = Latin(names.length);
+					} else {
+						resultMap = JSON.parse(localStorage.getItem("latinsquare"));
+					}
+					console.log(resultMap);
+					$("#result").empty();
+					for (i=0; i<names.length; i++) {
+						$("#result").append("<div>" + names[i] + ": " + numbers[resultMap[round][i]] + "</div>");
+					}
+					round ++;
+					localStorage.setItem("round", round);
+					localStorage.setItem("latinsquare", JSON.stringify(resultMap));
+				}
 				localStorage.setItem("names", JSON.stringify(names));
 				localStorage.setItem("numbers", JSON.stringify(numbers));
-				var resultMap = findNumber(numberByName, names, numbers);
-				for (name in resultMap) {
-					numberByName[name].push(resultMap[name]);
-					$("#result").append("<div>" + name + ": " + resultMap[name] + "</div>");
-				}
-				localStorage.setItem("NumberByName", JSON.stringify(numberByName));
 			});
+							
 			$("#reset").click(function(){
-				localStorage.removeItem("NumberByName");
+				localStorage.removeItem("latinsquare");
+				localStorage.removeItem("round");
 			});
 			$("#clear").click(function() {
 				localStorage.removeItem("names");
 				localStorage.removeItem("numbers");
-				localStorage.removeItem("NumberByName");
+				localStorage.removeItem("latinsquare");
+				localStorage.removeItem("round");
 				window.location.reload();
 			});
 		});
