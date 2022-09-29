@@ -58,7 +58,6 @@
 		<tr>
 			<td><input class="name" type="text"></td>
 			<td><input class="number" type="text"></td>
-			<td><button class="remove-entry button" tabindex="-1">-</button></td>
 		</tr>
 	</template>
 	<script type="text/javascript">
@@ -152,56 +151,63 @@
 					$("#main-table .number:eq(" + i + ")").val(numbers[i]);
 				}
 			}
-			$("#add-entry").click(function(){
-				$("#main-table").append($("#template").html());
-			});
-			$(document).on("click", ".remove-entry", function() {
-				if ($(".remove-entry").length > 1) {
-					$(this).parent().parent().remove();
-					// Reset stored numbers if an entry is removed. Otherwise, we might have dead loop.
-					localStorage.removeItem("NumberByName");
+			$("#confirm-count").click(function(){
+				let count = $("#count").val();
+				console.log($("#main-table"));
+				while ($("#main-table")[0].rows.length > 1) {
+					$("#main-table")[0].deleteRow(1);
 				}
+				for (var i = 0; i < count; i++) {
+					$("#main-table").append($("#template").html());
+				}
+				localStorage.setItem("count", count);
+				localStorage.setItem("round", 0);
 			});
 			$("#generate").click(function(){
-				var names = [];
-				var numbers = [];
-				$(".name").each(function(index){
-					if ($(this).val() == "") {
-						return;
-					}
-					names.push($(this).val());
-					numbers.push($(".number:eq(" + index + ")").val());
-				});
-				var round = localStorage.getItem("round");
-				if (null === round) {
-					round = 0;
-				}
-				if (round >= names.length) {
-					alert("No result available, use reset");
+				if (!localStorage.getItem("count")) {
+					alert("Input COUNT first!");
 				} else {
+					let count = localStorage.getItem("count");
+					var names = [];
+					var numbers = [];
+					var resultMap;
+					$(".name").each(function(index){
+						if ($(this).val() == "") {
+							return;
+						}
+						names.push($(this).val());
+						numbers.push($(".number:eq(" + index + ")").val());
+					});
+					var round = localStorage.getItem("round");
+					if (null === round) {
+						round = 0;
+					}
+					if (round >= count) {
+						round = 0;
+						resultMap = Latin(Number(count));
+						localStorage.setItem("round", round);
+						localStorage.setItem("latinsquare", JSON.stringify(resultMap));
+						alert("Too many rounds, starting again");
+					}
 					if (!localStorage.getItem("latinsquare")) {
+						console.log(count, names.length);
 						resultMap = Latin(names.length);
 					} else {
 						resultMap = JSON.parse(localStorage.getItem("latinsquare"));
 					}
-					console.log(resultMap);
 					$("#result").empty();
-					for (i=0; i<names.length; i++) {
+					for (i=0; i<count; i++) {
 						$("#result").append("<div>" + names[i] + ": " + numbers[resultMap[round][i]] + "</div>");
 					}
 					round ++;
 					localStorage.setItem("round", round);
 					localStorage.setItem("latinsquare", JSON.stringify(resultMap));
-				}
-				localStorage.setItem("names", JSON.stringify(names));
-				localStorage.setItem("numbers", JSON.stringify(numbers));
+					localStorage.setItem("names", JSON.stringify(names));
+					localStorage.setItem("numbers", JSON.stringify(numbers));
+				}				
 			});
 							
 			$("#reset").click(function(){
-				localStorage.removeItem("latinsquare");
-				localStorage.removeItem("round");
-			});
-			$("#clear").click(function() {
 				localStorage.removeItem("names");
 				localStorage.removeItem("numbers");
 				localStorage.removeItem("latinsquare");
@@ -214,11 +220,11 @@
 <body>
 	<p id="header">Karting Number Random Picker</p>
 	<div id="main">
-		<div id="buttons">
-			<button id="add-entry" class="button">Add</button>
-			<button id="generate" class="button">Generate</button>
+		<div id="initialization">
+			<label for="count">Total Count:</label><br>
+			<input id="count" type="number"><br>
+			<button id="confirm-count">Confirm</button>
 			<button id="reset" class="button">Reset</button>
-			<button id="clear" class="button">Clear</button>
 		</div>
 		<table id="main-table">
 			<tr>
@@ -226,12 +232,8 @@
 				<th>Number</th>
 				<th></th>
 			</tr>
-			<tr>
-				<td><input class="name" type="text"></td>
-				<td><input class="number" type="text"></td>
-				<td><button class="remove-entry button" tabindex="-1">-</button></td>
-			</tr>
 		</table>
+		<button id="generate" class="button">Generate</button>
 		<div id="result"></div>
 	</div>
 </body>
