@@ -70,7 +70,7 @@
 			else return [b, a];
 		}
 
-		function Latin(n) {
+		function latin(n) {
 			let xy = new Array(n).fill(0).map(() => new Array(n).fill(0));
 			let xz = new Array(n).fill(0).map(() => new Array(n).fill(0));
 			let yz = new Array(n).fill(0).map(() => new Array(n).fill(0));
@@ -141,6 +141,42 @@
 			return xy;
 		}
 
+		function checkCount() {
+			if (!localStorage.getItem("carCount") || !localStorage.getItem("roundCount")) {
+				alert("Input COUNT first!");
+				return false;
+			}
+			return true;
+		}
+
+		function generateOne(empty, round){
+			if (checkCount()){
+				const carCount = localStorage.getItem("carCount");
+				const roundCount = localStorage.getItem("roundCount");
+				var names = [];
+				var numbers = [];
+				var resultMap, name, number;
+				$(".name").each(function(index){
+					names.push($(this).val() || "PLACEHOLDER");
+					numbers.push($(".number:eq(" + index + ")").val() || "-1");
+				});
+				if (!localStorage.getItem("latinSquare")) {
+					resultMap = latin(parseInt(carCount));
+				} else {
+					resultMap = JSON.parse(localStorage.getItem("latinSquare"));
+				}
+				if (empty)
+					$("#result").empty();
+				$("#result").append("<h1>Round " + round + "/" + roundCount + "</h1>");
+				for (i=0; i<carCount; i++) {
+					$("#result").append("<div>" + names[i] + ": " + numbers[resultMap[round-1][i]] + "</div>");
+				}
+				localStorage.setItem("latinSquare", JSON.stringify(resultMap));
+				localStorage.setItem("names", JSON.stringify(names));
+				localStorage.setItem("numbers", JSON.stringify(numbers));
+			}
+		}
+
 		$(document).ready(function(){
 			if (localStorage.getItem("numbers")) {
 				var numbers = JSON.parse(localStorage.getItem("numbers"));
@@ -151,67 +187,54 @@
 					$("#main-table .number:eq(" + i + ")").val(numbers[i]);
 				}
 			}
+			$("#initialization #car-count").val(localStorage.getItem("carCount"));
+			$("#initialization #round-count").val(localStorage.getItem("roundCount"));
 			$("#confirm-count").click(function(){
-				let count = $("#count").val();
-				console.log($("#main-table"));
-				while ($("#main-table")[0].rows.length > 1) {
-					$("#main-table")[0].deleteRow(1);
-				}
-				for (var i = 0; i < count; i++) {
-					$("#main-table").append($("#template").html());
-				}
-				localStorage.setItem("count", count);
-				localStorage.setItem("round", 0);
-			});
-			$("#generate").click(function(){
-				if (!localStorage.getItem("count")) {
-					alert("Input COUNT first!");
+				const carCount = $("#car-count").val();
+				const roundCount = $("#round-count").val();
+				if (carCount < roundCount) {
+					alert("Too many rounds!");
 				} else {
-					let count = localStorage.getItem("count");
-					var names = [];
-					var numbers = [];
-					var resultMap;
-					$(".name").each(function(index){
-						if ($(this).val() == "") {
-							return;
-						}
-						names.push($(this).val());
-						numbers.push($(".number:eq(" + index + ")").val());
-					});
-					var round = localStorage.getItem("round");
-					if (null === round) {
-						round = 0;
+					while ($("#main-table")[0].rows.length > 1) {
+						$("#main-table")[0].deleteRow(1);
 					}
-					if (round >= count) {
-						round = 0;
-						resultMap = Latin(Number(count));
-						localStorage.setItem("round", round);
-						localStorage.setItem("latinsquare", JSON.stringify(resultMap));
-						alert("Too many rounds, starting again");
+					for (var i = 0; i < carCount; i++) {
+						$("#main-table").append($("#template").html());
 					}
-					if (!localStorage.getItem("latinsquare")) {
-						console.log(count, names.length);
-						resultMap = Latin(names.length);
-					} else {
-						resultMap = JSON.parse(localStorage.getItem("latinsquare"));
-					}
-					$("#result").empty();
-					for (i=0; i<count; i++) {
-						$("#result").append("<div>" + names[i] + ": " + numbers[resultMap[round][i]] + "</div>");
-					}
+					localStorage.setItem("carCount", carCount);
+					localStorage.setItem("roundCount", roundCount);
+					localStorage.setItem("curRound", 0);
+				}
+			});
+			$("#next").click(function(){
+				var round = localStorage.getItem("curRound") || 0;
+				const roundCount = localStorage.getItem("roundCount");
+				if (round >= roundCount) {
+					alert("Race ended!");
+				} else {
 					round ++;
-					localStorage.setItem("round", round);
-					localStorage.setItem("latinsquare", JSON.stringify(resultMap));
-					localStorage.setItem("names", JSON.stringify(names));
-					localStorage.setItem("numbers", JSON.stringify(numbers));
-				}				
+					generateOne(true, round);
+				}
+				localStorage.setItem("curRound", round);
+			});
+			$("#previous").click(function(){
+				var round = localStorage.getItem("curRound") || 0;
+				localStorage.setItem("curRound", round);
+				if (round > 1) {
+					round --;
+					generateOne(true, round);
+				}
+				localStorage.setItem("curRound", round);
+			});
+			$("#show-all").click(function(){
+				$("#result").empty();
+				for (var i = 0; i < localStorage.getItem("roundCount"); i++) {
+					generateOne(false, i+1);
+				}
 			});
 							
 			$("#reset").click(function(){
-				localStorage.removeItem("names");
-				localStorage.removeItem("numbers");
-				localStorage.removeItem("latinsquare");
-				localStorage.removeItem("round");
+				localStorage.clear();
 				window.location.reload();
 			});
 		});
@@ -221,8 +244,10 @@
 	<p id="header">Karting Number Random Picker</p>
 	<div id="main">
 		<div id="initialization">
-			<label for="count">Total Count:</label><br>
-			<input id="count" type="number"><br>
+			<label for="car-count">Number of Cars:</label><br>
+			<input id="car-count" type="number"><br>
+			<label for="round-count">Number of Rounds:</label><br>
+			<input id="round-count" type="number"><br>
 			<button id="confirm-count">Confirm</button>
 			<button id="reset" class="button">Reset</button>
 		</div>
@@ -233,8 +258,11 @@
 				<th></th>
 			</tr>
 		</table>
-		<button id="generate" class="button">Generate</button>
-		<div id="result"></div>
+		<button id="previous" class="button">Previous Round</button>
+		<button id="next" class="button">Next Round</button>
+		<button id="show-all" class="button">Show All</button>
+		<div id="result">
+		</div>
 	</div>
 </body>
 </html>
