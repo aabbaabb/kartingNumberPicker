@@ -58,57 +58,123 @@
 		<tr>
 			<td><input class="name" type="text"></td>
 			<td><input class="number" type="text"></td>
-			<td><button class="remove-entry button" tabindex="-1">-</button></td>
 		</tr>
 	</template>
 	<script type="text/javascript">
-		function getRndInteger(min, max) {
-			return Math.floor(Math.random() * (max - min) ) + min;
+		function getRndInt(max) {
+			return Math.floor(Math.random() * max);
 		}
 
-		function findNumber(numberByName, names, numbers) {
-			while (true) {
-				var selected = [];
-				var resultMap = {};
-				for (var i = 0; i < names.length; i++) {
-					var name = names[i];
-					if (!(name in numberByName)) {
-						numberByName[name] = [];
-					}
-					var usedNumbers = numberByName[name];
-					if (usedNumbers.length >= numbers.length) {
-						alert("No result available, use reset");
-						return {};
-					}
-					var availableNumbers = []
-					for (var j = 0; j < numbers.length; j++) {
-						var candidate = numbers[j];
-						if (usedNumbers.indexOf(candidate) == -1 &&
-							selected.indexOf(candidate) == -1) {
-							// Not used before
-							availableNumbers.push(candidate);
-						}
-					}
-					if (availableNumbers.length == 0) {
-						break;
-					}
-					var index = getRndInteger(0, availableNumbers.length);
-					var number = availableNumbers[index];
-					
-					selected.push(number);
-					resultMap[name] = number;
-				}
-				if (Object.keys(resultMap).length == names.length) {
-					return resultMap;
-				}
-			}
+		function rand2(a, b) {
+			if (getRndInt(2) == 0) return [a, b];
+			else return [b, a];
 		}
 
-		function getNumberByNames() {
-			if (!localStorage.getItem("NumberByName")) {
-				localStorage.setItem("NumberByName", JSON.stringify({}));
+		function latin(n) {
+			let xy = new Array(n).fill(0).map(() => new Array(n).fill(0));
+			let xz = new Array(n).fill(0).map(() => new Array(n).fill(0));
+			let yz = new Array(n).fill(0).map(() => new Array(n).fill(0));
+			for (var i = 0; i < n; i++) {
+				for (var j = 0; j < n; j++) {
+					k = (i + j) % n;
+					xy[i][j] = k;
+					xz[i][k] = j;
+					yz[j][k] = i;
+				}
 			}
-			return JSON.parse(localStorage.getItem("NumberByName"));
+			var mxy, mxz, myz;
+			var m = new Array(3);
+			var proper = true;
+			minIter = n * n * n;
+			for (var iter = 0; iter < minIter || !proper; iter++) {
+				var i, j, k, i2, j2, k2;
+				var i2_, j2_, k2_;
+
+				if (proper) {
+					// Pick a random 0 in the array
+					do {
+						i = getRndInt(n);
+						j = getRndInt(n);
+						k = getRndInt(n);
+					} while (xy[i][j] == k);
+					// find i2 such that [i2, j, k] is 1. same for j2, k2
+					i2 = yz[j][k];
+					j2 = xz[i][k];
+					k2 = xy[i][j];
+					i2_ = i;
+					j2_ = j;
+					k2_ = k;
+				} else {
+					[i, j, k] = m;
+					// find one such that [i2, j, k] is 1, same for j2, k2.
+					// each is either the value stored in the corresponding
+					// slice, or one of our three temporary "extra" 1s.
+					// That's because (i, j, k) is -1.
+					[i2, i2_] = rand2(yz[j][k], myz);
+					[j2, j2_] = rand2(xz[i][k], mxz);
+					[k2, k2_] = rand2(xy[i][j], mxy);
+				}
+
+				proper = (xy[i2][j2] == k2);
+				if (!proper) {
+					m = [i2, j2, k2];
+					mxy = xy[i2][j2];
+					myz = yz[j2][k2];
+					mxz = xz[i2][k2];
+				}
+
+				xy[i][j] = k2_;
+				xy[i][j2] = k2;
+				xy[i2][j] = k2;
+				xy[i2][j2] = k;
+
+				yz[j][k] = i2_;
+				yz[j][k2] = i2;
+				yz[j2][k] = i2;
+				yz[j2][k2] = i;
+
+				xz[i][k] = j2_;
+				xz[i][k2] = j2;
+				xz[i2][k] = j2;
+				xz[i2][k2] = j;
+			}
+			return xy;
+		}
+
+		function checkCount() {
+			if (!localStorage.getItem("carCount") || !localStorage.getItem("roundCount")) {
+				alert("Input COUNT first!");
+				return false;
+			}
+			return true;
+		}
+
+		function generateOne(empty, round){
+			if (checkCount()){
+				const carCount = localStorage.getItem("carCount");
+				const roundCount = localStorage.getItem("roundCount");
+				var names = [];
+				var numbers = [];
+				var resultMap, name, number;
+				$(".name").each(function(index){
+					names.push($(this).val() || "PLACEHOLDER");
+					numbers.push($(".number:eq(" + index + ")").val() || "-1");
+				});
+				if (!localStorage.getItem("latinSquare")) {
+					resultMap = latin(parseInt(carCount));
+				} else {
+					resultMap = JSON.parse(localStorage.getItem("latinSquare"));
+				}
+				if (empty)
+					$("#result").empty();
+				$("#result").append("<h1>Round " + round + "/" + roundCount + "</h1>");
+				for (i=0; i<carCount; i++) {
+					$("#result").append("<div>" + names[i] + ": " + numbers[resultMap[round-1][i]] + "</div>");
+				}
+				localStorage.setItem("latinSquare", JSON.stringify(resultMap));
+				localStorage.setItem("names", JSON.stringify(names));
+				localStorage.setItem("numbers", JSON.stringify(numbers));
+			}
 		}
 
 		$(document).ready(function(){
@@ -121,44 +187,54 @@
 					$("#main-table .number:eq(" + i + ")").val(numbers[i]);
 				}
 			}
-			$("#add-entry").click(function(){
-				$("#main-table").append($("#template").html());
-			});
-			$(document).on("click", ".remove-entry", function() {
-				if ($(".remove-entry").length > 1) {
-					$(this).parent().parent().remove();
-					// Reset stored numbers if an entry is removed. Otherwise, we might have dead loop.
-					localStorage.removeItem("NumberByName");
-				}
-			});
-			$("#generate").click(function(){
-				var numberByName = getNumberByNames();
-				var names = [];
-				var numbers = [];
-				$(".name").each(function(index){
-					if ($(this).val() == "") {
-						return;
+			$("#initialization #car-count").val(localStorage.getItem("carCount"));
+			$("#initialization #round-count").val(localStorage.getItem("roundCount"));
+			$("#confirm-count").click(function(){
+				const carCount = $("#car-count").val();
+				const roundCount = $("#round-count").val();
+				if (carCount < roundCount) {
+					alert("Too many rounds!");
+				} else {
+					while ($("#main-table")[0].rows.length > 1) {
+						$("#main-table")[0].deleteRow(1);
 					}
-					names.push($(this).val());
-					numbers.push($(".number:eq(" + index + ")").val());
-				});
-				$("#result").empty();
-				localStorage.setItem("names", JSON.stringify(names));
-				localStorage.setItem("numbers", JSON.stringify(numbers));
-				var resultMap = findNumber(numberByName, names, numbers);
-				for (name in resultMap) {
-					numberByName[name].push(resultMap[name]);
-					$("#result").append("<div>" + name + ": " + resultMap[name] + "</div>");
+					for (var i = 0; i < carCount; i++) {
+						$("#main-table").append($("#template").html());
+					}
+					localStorage.setItem("carCount", carCount);
+					localStorage.setItem("roundCount", roundCount);
+					localStorage.setItem("curRound", 0);
 				}
-				localStorage.setItem("NumberByName", JSON.stringify(numberByName));
 			});
+			$("#next").click(function(){
+				var round = localStorage.getItem("curRound") || 0;
+				const roundCount = localStorage.getItem("roundCount");
+				if (round >= roundCount) {
+					alert("Race ended!");
+				} else {
+					round ++;
+					generateOne(true, round);
+				}
+				localStorage.setItem("curRound", round);
+			});
+			$("#previous").click(function(){
+				var round = localStorage.getItem("curRound") || 0;
+				localStorage.setItem("curRound", round);
+				if (round > 1) {
+					round --;
+					generateOne(true, round);
+				}
+				localStorage.setItem("curRound", round);
+			});
+			$("#show-all").click(function(){
+				$("#result").empty();
+				for (var i = 0; i < localStorage.getItem("roundCount"); i++) {
+					generateOne(false, i+1);
+				}
+			});
+							
 			$("#reset").click(function(){
-				localStorage.removeItem("NumberByName");
-			});
-			$("#clear").click(function() {
-				localStorage.removeItem("names");
-				localStorage.removeItem("numbers");
-				localStorage.removeItem("NumberByName");
+				localStorage.clear();
 				window.location.reload();
 			});
 		});
@@ -167,11 +243,13 @@
 <body>
 	<p id="header">Karting Number Random Picker</p>
 	<div id="main">
-		<div id="buttons">
-			<button id="add-entry" class="button">Add</button>
-			<button id="generate" class="button">Generate</button>
+		<div id="initialization">
+			<label for="car-count">Number of Cars:</label><br>
+			<input id="car-count" type="number"><br>
+			<label for="round-count">Number of Rounds:</label><br>
+			<input id="round-count" type="number"><br>
+			<button id="confirm-count">Confirm</button>
 			<button id="reset" class="button">Reset</button>
-			<button id="clear" class="button">Clear</button>
 		</div>
 		<table id="main-table">
 			<tr>
@@ -179,13 +257,12 @@
 				<th>Number</th>
 				<th></th>
 			</tr>
-			<tr>
-				<td><input class="name" type="text"></td>
-				<td><input class="number" type="text"></td>
-				<td><button class="remove-entry button" tabindex="-1">-</button></td>
-			</tr>
 		</table>
-		<div id="result"></div>
+		<button id="previous" class="button">Previous Round</button>
+		<button id="next" class="button">Next Round</button>
+		<button id="show-all" class="button">Show All</button>
+		<div id="result">
+		</div>
 	</div>
 </body>
 </html>
